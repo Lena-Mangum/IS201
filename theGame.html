@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Knight's Path</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: sans-serif;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
+      border: 2px solid #333;
+    }
+    .square {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .light {
+      background-color: #f0d9b5;
+    }
+    .dark {
+      background-color: #b58863;
+    }
+    .knight {
+      color: blue;
+    }
+    .goal {
+      background-color: red !important;
+    }
+    #moves, #timer, #best, #message {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+    #controls {
+      margin-top: 10px;
+    }
+    button {
+      padding: 6px 12px;
+      margin: 0 5px;
+      font-size: 16px;
+    }
+    nav a {
+      margin: 0 10px;
+      text-decoration: none;
+      color: black;
+      font-size: 18px;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="common header">
+    <h1>The Knights Path</h1>
+  </div>
+  <nav>
+    <a href="../index.html">Resume</a>
+    <a href="scratch.html">Scratch Page</a>
+  </nav>
+  <br>
+  <div id="board"></div>
+  <div id="moves">Moves: 0</div>
+  <div id="timer">Time: 0s</div>
+  <div id="best">Best Possible: --</div>
+  <div id="message"></div>
+  <div id="controls">
+    <button id="resetBtn">New Game</button>
+    <button id="retryBtn">Retry</button>
+  </div>
+
+  <script>
+    const board = document.getElementById('board');
+    const movesDisplay = document.getElementById('moves');
+    const timerDisplay = document.getElementById('timer');
+    const bestDisplay = document.getElementById('best');
+    const messageDisplay = document.getElementById('message');
+    const resetBtn = document.getElementById('resetBtn');
+    const retryBtn = document.getElementById('retryBtn');
+
+    const knightSymbol = '♘';
+    let knightPos = { x: 0, y: 0 };
+    let goalPos = { x: 0, y: 0 };
+    let savedSetup = null;
+    let moveCount = 0;
+    let timer = 0;
+    let intervalId;
+    let bestMoves = 0;
+
+    function getRandomPosition() {
+      return {
+        x: Math.floor(Math.random() * 8),
+        y: Math.floor(Math.random() * 8)
+      };
+    }
+
+    function isValidKnightMove(from, to) {
+      const dx = Math.abs(from.x - to.x);
+      const dy = Math.abs(from.y - to.y);
+      return (dx === 2 && dy === 1) || (dx === 1 && dy === 2);
+    }
+
+    function getValidMoves(pos) {
+      const deltas = [
+        [2, 1], [1, 2], [-1, 2], [-2, 1],
+        [-2, -1], [-1, -2], [1, -2], [2, -1]
+      ];
+      return deltas
+        .map(([dx, dy]) => ({ x: pos.x + dx, y: pos.y + dy }))
+        .filter(p => p.x >= 0 && p.x < 8 && p.y >= 0 && p.y < 8);
+    }
+
+    function renderBoard() {
+      board.innerHTML = '';
+
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+          const square = document.createElement('div');
+          square.classList.add('square');
+          square.classList.add((x + y) % 2 === 0 ? 'light' : 'dark');
+          square.dataset.x = x;
+          square.dataset.y = y;
+
+          if (x === knightPos.x && y === knightPos.y) {
+            square.classList.add('knight');
+            square.textContent = knightSymbol;
+          }
+
+          if (x === goalPos.x && y === goalPos.y) {
+            square.classList.add('goal');
+          }
+
+          square.addEventListener('click', () => {
+            const newX = parseInt(square.dataset.x);
+            const newY = parseInt(square.dataset.y);
+            const newPos = { x: newX, y: newY };
+
+            if (isValidKnightMove(knightPos, newPos)) {
+              knightPos = newPos;
+              moveCount++;
+              movesDisplay.textContent = `Moves: ${moveCount}`;
+              renderBoard();
+
+              if (knightPos.x === goalPos.x && knightPos.y === goalPos.y) {
+                clearInterval(intervalId);
+                bestDisplay.textContent = `Best Possible: ${bestMoves}`;
+                messageDisplay.textContent = `You reached the goal in ${moveCount} moves and ${timer} seconds!`;
+              } else {
+                messageDisplay.textContent = '';
+              }
+            }
+          });
+
+          board.appendChild(square);
+        }
+      }
+    }
+
+    function startTimer() {
+      clearInterval(intervalId);
+      timer = 0;
+      timerDisplay.textContent = 'Time: 0s';
+      intervalId = setInterval(() => {
+        timer++;
+        timerDisplay.textContent = `Time: ${timer}s`;
+      }, 1000);
+    }
+
+    function calculateMinKnightMoves(start, end) {
+      const visited = Array.from({ length: 8 }, () => Array(8).fill(false));
+      const queue = [{ pos: start, dist: 0 }];
+      visited[start.x][start.y] = true;
+
+      while (queue.length) {
+        const { pos, dist } = queue.shift();
+        if (pos.x === end.x && pos.y === end.y) return dist;
+
+        for (const move of getValidMoves(pos)) {
+          if (!visited[move.x][move.y]) {
+            visited[move.x][move.y] = true;
+            queue.push({ pos: move, dist: dist + 1 });
+          }
+        }
+      }
+      return -1;
+    }
+
+    function generateSetup(minMoves = 3) {
+      let start, goal, dist;
+      do {
+        start = getRandomPosition();
+        goal = getRandomPosition();
+        dist = calculateMinKnightMoves(start, goal);
+      } while (dist < minMoves);
+      return { start, goal, best: dist };
+    }
+
+    function resetGame() {
+      const setup = generateSetup();
+      knightPos = setup.start;
+      goalPos = setup.goal;
+      bestMoves = setup.best;
+      savedSetup = setup;
+      moveCount = 0;
+      movesDisplay.textContent = 'Moves: 0';
+      bestDisplay.textContent = 'Best Possible: --';
+      messageDisplay.textContent = '';
+      startTimer();
+      renderBoard();
+    }
+
+    function retryGame() {
+      if (savedSetup) {
+        knightPos = savedSetup.start;
+        goalPos = savedSetup.goal;
+        bestMoves = savedSetup.best;
+        moveCount = 0;
+        movesDisplay.textContent = 'Moves: 0';
+        bestDisplay.textContent = 'Best Possible: --';
+        messageDisplay.textContent = '';
+        startTimer();
+        renderBoard();
+      }
+    }
+
+    resetBtn.addEventListener('click', resetGame);
+    retryBtn.addEventListener('click', retryGame);
+
+    document.addEventListener('keydown', (e) => {
+      const keyMap = {
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0]
+      };
+      if (!keyMap[e.key]) return;
+      const [dx, dy] = keyMap[e.key];
+      const newPos = { x: knightPos.x + dx, y: knightPos.y + dy };
+      if (newPos.x >= 0 && newPos.x < 8 && newPos.y >= 0 && newPos.y < 8 && isValidKnightMove(knightPos, newPos)) {
+        knightPos = newPos;
+        moveCount++;
+        movesDisplay.textContent = `Moves: ${moveCount}`;
+        renderBoard();
+        if (knightPos.x === goalPos.x && knightPos.y === goalPos.y) {
+          clearInterval(intervalId);
+          bestDisplay.textContent = `Best Possible: ${bestMoves}`;
+          messageDisplay.textContent = `You reached the goal in ${moveCount} moves and ${timer} seconds!`;
+        } else {
+          messageDisplay.textContent = '';
+        }
+      }
+    });
+
+    resetGame();
+  </script>
+</body>
+</html>
